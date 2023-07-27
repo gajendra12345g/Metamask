@@ -3,12 +3,10 @@ import logo from './logo.svg';
 import './App.css';
 import Connection from './Connetion';
 
-
 function App() {
   return (
     <div className="App">
         <Connection/>
-       
     </div>
   );
 }

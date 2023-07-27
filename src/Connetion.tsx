@@ -62,37 +62,6 @@ class Connection extends Component {
         this.initializeMetaMask();
     }
 
-    
-    getUserTransactionData = async () => {
-        const { web3, account }:any = this.state;
-        if (!web3 || !account) return;
-      
-        try {
-          // Get the latest block number to fetch the latest transaction
-          const latestBlock = await web3.eth.getBlockNumber();
-          const latestBlockData = await web3.eth.getBlock(latestBlock);
-      
-          // Check if there are any transactions in the latest block
-          if (latestBlockData.transactions.length > 0) {
-            // Fetch the latest transaction details
-            const latestTransactionHash :any= latestBlockData.transactions[0];
-            const latestTransaction = await web3.eth.getTransaction(latestTransactionHash);
-      
-            console.log("Latest Transaction:", latestTransaction);
-            console.log("Gas Limit:", latestTransaction.gas);
-            console.log("Amount (Value):", latestTransaction.value);
-            console.log("Nonce:", latestTransaction.nonce);
-            // Other transaction details can be accessed similarly
-          } else {
-            console.log("No transactions in the latest block.");
-          }
-        } catch (error) {
-          console.error("Error fetching latest transaction:", error);
-        }
-      };
-    
-    
-
     initializeMetaMask = async () => {
         try {
             if (typeof (window as any).ethereum !== "undefined") {
@@ -112,7 +81,7 @@ class Connection extends Component {
         }
     };
 
-    
+
 
     fetchEtherBalance = async () => {
         const { web3, account }: any = this.state;
@@ -127,31 +96,71 @@ class Connection extends Component {
         }
     };
 
-    
-
-    fetchTransactionHistory = async () => {
-        const { web3, account }: any = this.state;
+    getTransaction = async (txHash: string) => {
+        const { web3 }: any = this.state;
+        console.log('Web 3', web3);
         if (!web3) return;
-
         try {
-            const contract = new web3.eth.Contract(
-                ERC20TokenABI,
-                ERC20TokenContractAddress
-            );
-            const events = await contract.getPastEvents("Transfer", {
-                filter: { from: account },
-                fromBlock: 0,
-                toBlock: "latest",
-            });
-            console.log("Transaction History:", events);
-            this.setState({ transactions: events });
+            const transaction = await web3.eth.getTransaction(txHash);
+            console.log("Transaction:", transaction);
+            console.log("From:", transaction.from);
+            console.log("To:", transaction.to);
+            console.log("Nonce:", transaction.nonce);
+            const valueInEther = web3.utils.fromWei(transaction.value, "ether");
+            console.log("Amount (Ether):", valueInEther);
+            console.log("Gas Limit (Units):", transaction.gas);
+            console.log("Gas Used (Units):", transaction.gasUsed);
+            const gasPriceInGwei = web3.utils.fromWei(transaction.gasPrice, "ether");
+            console.log("Base fee (Gwei):", gasPriceInGwei);
+            console.log("Priority fee (Gwei):", transaction.maxPriorityFeePerGas);
+            console.log("Total gas fee (MATIC):", transaction.gasFee);
+            console.log("Max fee per gas (MATIC):", transaction.maxFeePerGas);
+            console.log("Max fee per gas (USD):", transaction.maxFeePerGasUSD);
+
+           
+            const gasPriceWei = await web3.eth.getGasPrice();
+             console.log('gasPriceGwei22',gasPriceWei)
+            // Convert gas price to Gwei (1 Gwei = 1e9 Wei)
+            const gasPriceGwei = web3.utils.fromWei(gasPriceWei, 'Gwei');
+            console.log('gasPriceGwei22',gasPriceGwei)
+
         } catch (error) {
-            console.error("Error fetching transaction history:", error);
+            console.error("Error fetching transaction:", error);
         }
     };
-
     
+    getTransactionStatus = async (txHash: string) => {
+        // Check if MetaMask is available
+        if (!(window as any).ethereum) {
+          console.error("MetaMask is not available.");
+          return;
+        }
+    
+        try {
+          // Request access to the user's MetaMask account
+          await (window as any).ethereum.enable();
+    
+          // Get the transaction status
+          const receipt = await (window as any).ethereum.request({
+            method: "eth_getTransactionReceipt",
+            params: [txHash],
+          });
+    
+          if (receipt && receipt.status) {
+            console.log("Transaction Status: Success");
+          } else if (receipt && !receipt.status) {
+            console.log("Transaction Status: Failed");
+          } else {
+            console.log("Transaction Status: Pending or Transaction Not Found");
+          }
+        } catch (error) {
+          console.error("Error fetching data from MetaMask:", error);
+        }
+      };
 
+      
+      
+    
     
 
     render() {
@@ -160,22 +169,24 @@ class Connection extends Component {
             <div>
                 <h2>Connected Account: {account}</h2>
                 <h3>Transaction History:</h3>
-                <button onClick={this.fetchTransactionHistory}>Fetch History</button>
                 <button onClick={this.fetchEtherBalance}>Fetch Ether Balance</button>
-                <button onClick={this.getUserTransactionData}>getUserTransactionData</button>
+                <button onClick={() => this.getTransaction("0x3ae5b58e983a74505fd21e93261f45db0d91a1712285a2a950d0e8c19ff21dc3")}>
+                    getTransaction
+                </button>
+                <button onClick={()=>this.getTransactionStatus("0x3ae5b58e983a74505fd21e93261f45db0d91a1712285a2a950d0e8c19ff21dc3")}>getTransactionStatus</button>
                 <ul>
-                {transactions.map((transaction: any, index: any) => (
-                    <li key={index}>
-                        <strong>Transaction Hash:</strong> {transaction.transactionHash}<br />
-                        <strong>From:</strong> {transaction.returnValues.from}<br />
-                        <strong>To:</strong> {transaction.returnValues.to}<br />
-                        <strong>Amount:</strong> {transaction.returnValues.value}<br />
-                        <strong>Block Number:</strong> {transaction.blockNumber}<br />
-                        <strong>Transaction Index:</strong> {transaction.transactionIndex}<br />
-                        {/* Add more details as needed */}
-                    </li>
-                ))}
-            </ul>
+                    {transactions.map((transaction: any, index: any) => (
+                        <li key={index}>
+                            <strong>Transaction Hash:</strong> {transaction.transactionHash}<br />
+                            <strong>From:</strong> {transaction.returnValues.from}<br />
+                            <strong>To:</strong> {transaction.returnValues.to}<br />
+                            <strong>Amount:</strong> {transaction.returnValues.value}<br />
+                            <strong>Block Number:</strong> {transaction.blockNumber}<br />
+                            <strong>Transaction Index:</strong> {transaction.transactionIndex}<br />
+                            {/* Add more details as needed */}
+                        </li>
+                    ))}
+                </ul>
             </div>
         );
     }
